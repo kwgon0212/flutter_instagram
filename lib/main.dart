@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'style.dart' as styleTheme;
+import 'style.dart' as style_theme;
 import 'pages/home.dart';
 import 'pages/shop.dart';
+import 'pages/home/upload.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() {
-  runApp(MaterialApp(home: MyApp(), theme: styleTheme.theme));
+  runApp(MaterialApp(home: MyApp(), theme: style_theme.theme));
 }
 
 class MyApp extends StatefulWidget {
@@ -16,8 +18,11 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String _currentTab = 'home';
+  List feedData = [];
+  XFile? userImage;
 
-  final Map<String, Widget> _pages = {'home': HomePage(), 'shop': ShopPage()};
+  void setFeedData(List newFeedData) => setState(() => feedData = newFeedData);
+  void addFeedData(Map newFeed) => setState(() => feedData.insert(0, newFeed));
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +31,30 @@ class _MyAppState extends State<MyApp> {
         title: Text('Instagram', textAlign: TextAlign.left),
         centerTitle: false,
         actions: [
-          IconButton(onPressed: () {}, icon: Icon(Icons.add_box_outlined)),
+          IconButton(
+            onPressed: () async {
+              var picker = ImagePicker();
+              var image = await picker.pickImage(source: ImageSource.gallery);
+              if (image == null) return;
+              setState(() => userImage = image);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UploadPage(
+                    userImage: userImage,
+                    feedData: feedData,
+                    addFeedData: addFeedData,
+                  ),
+                ),
+              );
+            },
+            icon: Icon(Icons.add_box_outlined),
+          ),
         ],
       ),
-      body: _pages[_currentTab],
+      body: _currentTab == 'home'
+          ? HomePage(data: feedData, setFeedData: setFeedData)
+          : ShopPage(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: () {
           if (_currentTab == 'home') return 0;

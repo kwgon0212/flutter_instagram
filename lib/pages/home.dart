@@ -1,36 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.data, required this.setFeedData});
+  final List data;
+  final Function(List) setFeedData;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  List data = [];
+  var more = 1;
+  var feedScroll = ScrollController();
 
   Future<void> fetchFeedData() async {
     final result = await http.get(
       Uri.parse('https://codingapple1.github.io/app/data.json'),
     );
-    setState(() => data = jsonDecode(result.body));
+    setState(() => widget.setFeedData(jsonDecode(result.body)));
+  }
+
+  Future<void> fetchMore() async {
+    try {
+      final result = await http.get(
+        Uri.parse('https://codingapple1.github.io/app/more$more.json'),
+      );
+      setState(
+        () => widget.setFeedData([...widget.data, jsonDecode(result.body)]),
+      );
+      more++;
+    } catch (e) {
+      feedScroll.removeListener(() {});
+    }
   }
 
   @override
   void initState() {
     super.initState();
     fetchFeedData();
+    feedScroll.addListener(() async {
+      if (feedScroll.position.pixels == feedScroll.position.maxScrollExtent) {
+        await fetchMore();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.data.isEmpty) {
+      return Center(child: CircularProgressIndicator());
+    }
+
     return ListView.builder(
-      itemCount: data.length,
+      controller: feedScroll,
+      itemCount: widget.data.length,
       itemBuilder: (context, index) {
-        return CardItem(item: data[index]);
+        return CardItem(item: widget.data[index]);
       },
     );
   }
@@ -47,12 +76,19 @@ class CardItem extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Image.network(
-            item['image'],
-            width: double.infinity,
-            fit: BoxFit.cover,
-            height: 300,
-          ),
+          item['image'].runtimeType == String
+              ? Image.network(
+                  item['image'],
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  height: 300,
+                )
+              : Image.file(
+                  File(item['image'].path),
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  height: 300,
+                ),
           Container(
             padding: EdgeInsets.all(20),
             child: Column(
