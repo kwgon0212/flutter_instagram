@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 class UploadPage extends StatefulWidget {
   UploadPage({
@@ -29,10 +30,22 @@ class _UploadPageState extends State<UploadPage> {
         title: Text("새 게시글"),
         actions: [
           IconButton(
-            onPressed: () {
+            onPressed: () async {
+              final originalPath = widget.userImage!.path;
+              final dir = await getApplicationDocumentsDirectory();
+              final ext = originalPath.contains('.')
+                  ? originalPath.split('.').last
+                  : 'jpg';
+              final fileName =
+                  'upload_${DateTime.now().millisecondsSinceEpoch}.' + ext;
+              final savedFile = await File(
+                originalPath,
+              ).copy('${dir.path}/' + fileName);
+
               widget.addFeedData({
                 'id': widget.feedData.length,
-                'image': widget.userImage,
+                'image': savedFile.path,
+                'isLocal': true,
                 'likes': 0,
                 'date': DateTime.now().toString(),
                 'content': content,

@@ -4,6 +4,9 @@ import 'pages/home.dart';
 import 'pages/shop.dart';
 import 'pages/home/upload.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(MaterialApp(home: MyApp(), theme: style_theme.theme));
@@ -21,8 +24,54 @@ class _MyAppState extends State<MyApp> {
   List feedData = [];
   XFile? userImage;
 
-  void setFeedData(List newFeedData) => setState(() => feedData = newFeedData);
-  void addFeedData(Map newFeed) => setState(() => feedData.insert(0, newFeed));
+  Future<void> _saveFeedsToLocal(List feeds) async {
+    final prefs = await SharedPreferences.getInstance();
+    // 네트워크 이미지/로컬 이미지 모두 문자열로 저장
+    await prefs.setString('feeds', jsonEncode(feeds));
+  }
+
+  Future<void> _loadFeedsFromLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('feeds');
+    if (raw == null) return;
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      setState(() => feedData = decoded);
+    }
+  }
+
+  void setFeedData(List newFeedData) {
+    setState(() => feedData = newFeedData);
+    _saveFeedsToLocal(newFeedData);
+  }
+
+  void addFeedData(Map newFeed) {
+    setState(() => feedData.insert(0, newFeed));
+    _saveFeedsToLocal(feedData);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapFeeds();
+  }
+
+  Future<void> _bootstrapFeeds() async {
+    await _loadFeedsFromLocal();
+    if (feedData.isEmpty) {
+      try {
+        final result = await http.get(
+          Uri.parse('https://codingapple1.github.io/app/data.json'),
+        );
+        final decoded = jsonDecode(result.body);
+        if (decoded is List) {
+          setFeedData(decoded);
+        }
+      } catch (_) {
+        // 네트워크 실패 시 조용히 무시 (로컬만 사용)
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
